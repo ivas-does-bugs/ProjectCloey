@@ -1,8 +1,17 @@
 #include <lvgl.h>
 #include <TFT_eSPI.h>
-
 #include <SPI.h>
 #include <SD.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
+// Network credentials
+const char* ssid = "test";
+const char* password = "miawmiaw";
+
+// Web server instance
+AsyncWebServer server(80);
 
 // SD card pins
 #define SD_CS    5    
@@ -20,7 +29,7 @@
 #define DRAW_BUF_SIZE (SCREEN_WIDTH * SCREEN_HEIGHT / 10 * (LV_COLOR_DEPTH / 8))
 uint32_t draw_buf[DRAW_BUF_SIZE / 4];
 
-
+// Create placeholders for UI elements
 lv_obj_t *style_label_text;
 lv_obj_t *change_label_text;
 
@@ -28,111 +37,125 @@ lv_obj_t *change_label_text;
 const char *style_options[] = {"Casual", "Formal", "Sport"};
 const char *change_options[] = {"All", "Shirt", "Pants", "Shoes"};
 
-// Logging for debugging
-void log_print(lv_log_level_t level, const char * buf) {
-  LV_UNUSED(level);
-  Serial.println(buf);
-  Serial.flush();
+// HTML template for the file manager
+const char html[] PROGMEM = R"rawliteral(
+  <!DOCTYPE HTML><html>
+  <head>
+    <title>SD Card File Manager</title>
+  </head>
+  <body>
+    <h1>SD Card File Manager</h1>
+    <h2>Upload File</h2>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+      <input type="file" name="fileToUpload">
+      <input type="submit" value="Upload">
+    </form>
+    <h2>Delete File</h2>
+    <form action="/delete" method="POST">
+      <input type="text" name="filename" placeholder="Enter filename to delete">
+      <input type="submit" value="Delete">
+    </form>
+    <h2>Files on SD Card:</h2>
+    <ul>
+      %FILES_LIST%
+    </ul>
+  </body>
+  </html>
+)rawliteral";
+
+// Function to get a list of files on the SD card
+String listFiles() {
+  String fileList = "";
+  File root = SD.open("/");
+  while (true) {
+    File file = root.openNextFile();
+    if (!file) break;
+    fileList += "<li>" + String(file.name()) + "</li>";
+    file.close();
+  }
+  return fileList;
 }
 
-// === GUI ===
-void lv_create_main_gui(void) {
+// Handle file upload
+void handleFileUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+  if (index == 0) { // Start of the file upload
+    Serial.println("Upload start: " + filename);
+    File uploadFile = SD.open("/" + filename, FILE_WRITE);
+    if (uploadFile) {
+      uploadFile.close();
+    } else {
+      Serial.println("Error opening file for writing");
+    }
+  }
 
-  //Set bg color white
-  lv_obj_t *scr = lv_scr_act(); 
-  lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
+  // Write data to SD card
+  File uploadFile = SD.open("/" + filename, FILE_WRITE);
+  if (uploadFile) {
+    uploadFile.write(data, len);
+    uploadFile.close();
+  }
 
-  // Bottom bar
-  lv_obj_t *bottom_bar = lv_obj_create(lv_scr_act());
-  lv_obj_set_size(bottom_bar, SCREEN_WIDTH, 50);
-  lv_obj_align(bottom_bar, LV_ALIGN_BOTTOM_MID, 0, 0);
-  lv_obj_set_style_bg_color(bottom_bar, lv_color_hex(0xADD8E6), 0); // Light blue
-  lv_obj_set_style_pad_all(bottom_bar, 5, 0);
-  lv_obj_set_layout(bottom_bar, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(bottom_bar, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(bottom_bar, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-  // Style section
-  lv_obj_t *style_container = lv_obj_create(bottom_bar);
-  lv_obj_remove_style_all(style_container);
-  lv_obj_set_size(style_container, 110, LV_SIZE_CONTENT);
-  lv_obj_set_layout(style_container, LV_LAYOUT_FLEX);
-
-  lv_obj_t *style_label = lv_label_create(style_container);
-  lv_label_set_text(style_label, "Style:");
-
-  style_label_text = lv_label_create(style_container);
-  lv_label_set_text(style_label_text, style_options[0]);  // Default to "Casual"
-
-  // Change section
-  lv_obj_t *change_container = lv_obj_create(bottom_bar);
-  lv_obj_remove_style_all(change_container);
-  lv_obj_set_size(change_container, 110, LV_SIZE_CONTENT);
-  lv_obj_set_layout(change_container, LV_LAYOUT_FLEX);
-
-  lv_obj_t *change_label = lv_label_create(change_container);
-  lv_label_set_text(change_label, "Change:");
-
-  change_label_text = lv_label_create(change_container);
-  lv_label_set_text(change_label_text, change_options[0]);  // Default to "All"
+  // If this is the last part of the upload, confirm the upload
+  if (final) {
+    request->send(200, "text/html", "<h1>File uploaded successfully!</h1><a href='/'>Go back</a>");
+  }
 }
 
-// === Update Labels Based on Potentiometer ===
-
-void update_labels_from_pots() {
-  // Read potentiometers
-  int pot1 = analogRead(POT1_PIN);
-  int pot2 = analogRead(POT2_PIN);
-
-  // Map potentiometer values to array indices
-  int style_index = map(pot1, 0, 4095, 0, 2);  // 0 to 2 for style
-  int change_index = map(pot2, 0, 4095, 0, 3); // 0 to 3 for change
-
-  // Update the label texts
-  lv_label_set_text(style_label_text, style_options[style_index]);
-  lv_label_set_text(change_label_text, change_options[change_index]);
+// Handle file deletion
+void handleFileDeletion(AsyncWebServerRequest *request) {
+  if (request->hasParam("filename", true)) {
+    String filename = request->getParam("filename", true)->value();
+    if (SD.exists(filename)) {
+      SD.remove(filename);
+      request->send(200, "text/html", "<h1>File deleted successfully!</h1><a href='/'>Go back</a>");
+    } else {
+      request->send(404, "text/html", "<h1>File not found!</h1><a href='/'>Go back</a>");
+    }
+  } else {
+    request->send(400, "text/html", "<h1>Filename not provided!</h1><a href='/'>Go back</a>");
+  }
 }
 
 void setup() {
-  String LVGL_Arduino = String("LVGL Library Version: ") + lv_version_major() + "." + lv_version_minor() + "." + lv_version_patch();
+  // Initialize Serial monitor
   Serial.begin(115200);
-  Serial.println(LVGL_Arduino);
 
-    // Initialize SD card
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  Serial.println(WiFi.localIP());
+
+  // Initialize SD card
   if (!SD.begin(SD_CS)) {
     Serial.println("Initialization failed!");
     return;
   }
   Serial.println("SD card initialized.");
 
-  File myFile = SD.open("/example.txt", FILE_WRITE);
-  if (myFile) {
-    myFile.println("Hello, SD card!");
-    myFile.close();
-  } else {
-    Serial.println("Error opening file.");
-  }
+  // Serve the HTML page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    String htmlContent = html;
+    htmlContent.replace("%FILES_LIST%", listFiles());
+    request->send(200, "text/html", htmlContent);
+  });
 
-  // Setup analog input pins
-  pinMode(POT1_PIN, INPUT);
-  pinMode(POT2_PIN, INPUT);
-  
-  // Start LVGL
-  lv_init();
-  lv_log_register_print_cb(log_print);
+  // Handle file upload
+  server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", "<h1>Upload complete!</h1>");
+  }, handleFileUpload);
 
-  // Init display
-  lv_display_t *disp = lv_tft_espi_create(SCREEN_WIDTH, SCREEN_HEIGHT, draw_buf, sizeof(draw_buf));
-  lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_0);
+  // Handle file deletion
+  server.on("/delete", HTTP_POST, handleFileDeletion);
 
-  // Create UI
-  lv_create_main_gui();
+  // Start the web server
+  server.begin();
 }
 
 void loop() {
-  lv_task_handler();
-  lv_tick_inc(5);
-  delay(5);
-
-  update_labels_from_pots();
+  // Nothing to do here
 }
