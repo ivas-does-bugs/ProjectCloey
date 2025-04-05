@@ -2,24 +2,29 @@
 #define GUI_H
 
 #include <TFT_eSPI.h>
-#include <JPEGDecoder.h>
+#include "JpegRenderer.h"
+
+#define LOAD_GFXFF
+#define GFXFF 1
+#define GLCD  0
+#define FONT2 2
+#define FONT4 4
+#define FONT6 6
+#define FONT7 7
+#define FONT8 8
+
+
 
 class GUI {
 public:
     GUI(TFT_eSPI& tft);
-    
-    void draw_ui(int style_index, int change_index);
-    void drawSdJpeg(const char *filename, int xpos, int ypos);
-    void jpegRender(int xpos, int ypos);
-    void jpegInfo();
-    
-    static int last_style_index;
-    static int last_change_index;
-    
+    void drawUI(int style_index, int change_index);
+
 private:
     TFT_eSPI& tft;
+    JpegRenderer jpegRenderer;
     const char* style_options[3] = {"Casual", "Formal", "Sport"};
-    const char* change_options[4] = {"All", "Shirt", "Pants", "Shoes"};
+    const char* change_options[4] = {"All", "Shirt", "Pants"};
 };
 
 #endif // GUI_H
