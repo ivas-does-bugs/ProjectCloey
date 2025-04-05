@@ -7,12 +7,5 @@ bool init_sd(int cs_pin) {
     }
   
     Serial.println("SD card initialized.");
-    File myFile = SD.open("/example.txt", FILE_WRITE);
-    if (myFile) {
-      myFile.println("Hello, SD card!");
-      myFile.close();
-    } else {
-      Serial.println("Error opening file.");
-    }
     return true;
   }
