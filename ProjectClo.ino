@@ -1,5 +1,3 @@
-#include <lvgl.h>
-#include <TFT_eSPI.h>
 #include <SPI.h>
 #include <SD.h>
 #include <WiFi.h>
@@ -18,24 +16,6 @@ AsyncWebServer server(80);
 #define SD_MOSI  23   
 #define SD_MISO  19   
 #define SD_SCK   18   
-
-// Potentiometer pins
-#define POT1_PIN 33
-#define POT2_PIN 33
-
-// Screen settings
-#define SCREEN_WIDTH 240
-#define SCREEN_HEIGHT 320
-#define DRAW_BUF_SIZE (SCREEN_WIDTH * SCREEN_HEIGHT / 10 * (LV_COLOR_DEPTH / 8))
-uint32_t draw_buf[DRAW_BUF_SIZE / 4];
-
-// Create placeholders for UI elements
-lv_obj_t *style_label_text;
-lv_obj_t *change_label_text;
-
-// Options arrays
-const char *style_options[] = {"Casual", "Formal", "Sport"};
-const char *change_options[] = {"All", "Shirt", "Pants", "Shoes"};
 
 // HTML template for the file manager
 const char html[] PROGMEM = R"rawliteral(
@@ -59,19 +39,25 @@ const char html[] PROGMEM = R"rawliteral(
     <ul>
       %FILES_LIST%
     </ul>
+    %SD_ERROR%
   </body>
   </html>
 )rawliteral";
 
+// Variable to store SD card error message
+String sdError = "";
+
 // Function to get a list of files on the SD card
 String listFiles() {
   String fileList = "";
-  File root = SD.open("/");
-  while (true) {
-    File file = root.openNextFile();
-    if (!file) break;
-    fileList += "<li>" + String(file.name()) + "</li>";
-    file.close();
+  if (SD.exists("/")) {
+    File root = SD.open("/");
+    while (true) {
+      File file = root.openNextFile();
+      if (!file) break;
+      fileList += "<li>" + String(file.name()) + "</li>";
+      file.close();
+    }
   }
   return fileList;
 }
@@ -80,6 +66,10 @@ String listFiles() {
 void handleFileUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
   if (index == 0) { // Start of the file upload
     Serial.println("Upload start: " + filename);
+    if (!SD.exists("/")) {
+      Serial.println("Error: SD card not initialized.");
+      return;
+    }
     File uploadFile = SD.open("/" + filename, FILE_WRITE);
     if (uploadFile) {
       uploadFile.close();
@@ -89,10 +79,12 @@ void handleFileUpload(AsyncWebServerRequest *request, String filename, size_t in
   }
 
   // Write data to SD card
-  File uploadFile = SD.open("/" + filename, FILE_WRITE);
-  if (uploadFile) {
-    uploadFile.write(data, len);
-    uploadFile.close();
+  if (SD.exists("/")) {
+    File uploadFile = SD.open("/" + filename, FILE_WRITE);
+    if (uploadFile) {
+      uploadFile.write(data, len);
+      uploadFile.close();
+    }
   }
 
   // If this is the last part of the upload, confirm the upload
@@ -132,15 +124,17 @@ void setup() {
 
   // Initialize SD card
   if (!SD.begin(SD_CS)) {
+    sdError = "<p><b>SD card initialization failed!</b></p>";
     Serial.println("Initialization failed!");
-    return;
+  } else {
+    sdError = "<p><b>SD card initialized successfully!</b></p>";
   }
-  Serial.println("SD card initialized.");
 
   // Serve the HTML page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     String htmlContent = html;
     htmlContent.replace("%FILES_LIST%", listFiles());
+    htmlContent.replace("%SD_ERROR%", sdError);
     request->send(200, "text/html", htmlContent);
   });
 
