@@ -1,44 +1,40 @@
-#include <lvgl.h>
 #include <TFT_eSPI.h>
-
 #include "pins.h"
-#include "gui.h"
 #include "sd_util.h"
 #include "io.h"
+#include "gui.h"
 
-// Screen settings
-#define SCREEN_WIDTH 240
-#define SCREEN_HEIGHT 320
-#define DRAW_BUF_SIZE (SCREEN_WIDTH * SCREEN_HEIGHT / 10 * (LV_COLOR_DEPTH / 8))
-uint32_t draw_buf[DRAW_BUF_SIZE / 4];
-
-void log_print(lv_log_level_t level, const char * buf) {
-  LV_UNUSED(level);
-  Serial.println(buf);
-  Serial.flush();
-}
+TFT_eSPI tft = TFT_eSPI();  // Create display object
+GUI gui(tft);  // Create GUI object
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting...");
 
   init_inputs();
-
   if (!init_sd(SD_CS)) return;
 
-  lv_init();
-  lv_log_register_print_cb(log_print);
+  tft.init();
+  tft.setRotation(0);
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(TFT_BLACK, TFT_LIGHTGREY);
 
-  lv_display_t *disp = lv_tft_espi_create(SCREEN_WIDTH, SCREEN_HEIGHT, draw_buf, sizeof(draw_buf));
-  lv_display_set_rotation(disp, LV_DISPLAY_ROTATION_0);
-
-  lv_create_main_gui();
+  gui.draw_ui(0, 0);  // Initial draw of the UI
 }
 
 void loop() {
-  lv_task_handler();
-  lv_tick_inc(5);
-  delay(5);
+  int pot1 = analogRead(POT1_PIN);
+  int pot2 = analogRead(POT2_PIN);
 
-  update_labels_from_pots();
+  int style_index = map(pot1, 0, 4095, 0, 2);
+  int change_index = map(pot2, 0, 4095, 0, 3);
+
+  // Only redraw if the index changes
+  if (style_index != GUI::last_style_index || change_index != GUI::last_change_index) {
+    gui.draw_ui(style_index, change_index);
+    GUI::last_style_index = style_index;
+    GUI::last_change_index = change_index;
+  }
+
+  delay(100);  // Add a small delay for smoother updates
 }

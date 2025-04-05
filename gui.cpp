@@ -1,55 +1,139 @@
 #include "gui.h"
+#include <SD.h>
+#include "pins.h"
+#include "sd_util.h"
+#include "io.h"
+#include <JPEGDecoder.h>
 
-// Global references to label objects
-lv_obj_t *style_label_text;
-lv_obj_t *change_label_text;
+#define LOAD_GFXFF
+#define GFXFF 1
+#define GLCD  0
+#define FONT2 2
+#define FONT4 4
+#define FONT6 6
+#define FONT7 7
+#define FONT8 8
 
-const char *style_options[] = {"Casual", "Formal", "Sport"};
-const char *change_options[] = {"All", "Shirt", "Pants", "Shoes"};
+int GUI::last_style_index = -1;
+int GUI::last_change_index = -1;
 
-void lv_create_main_gui() {
-  lv_obj_t *scr = lv_scr_act(); 
-  lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
+GUI::GUI(TFT_eSPI& tft) : tft(tft) {}
 
-  lv_obj_t *bottom_bar = lv_obj_create(scr);
-  lv_obj_set_size(bottom_bar, 240, 50);
-  lv_obj_align(bottom_bar, LV_ALIGN_BOTTOM_MID, 0, 0);
-  lv_obj_set_style_bg_color(bottom_bar, lv_color_hex(0xADD8E6), 0);
-  lv_obj_set_style_pad_all(bottom_bar, 5, 0);
-  lv_obj_set_layout(bottom_bar, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(bottom_bar, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(bottom_bar, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+void GUI::drawSdJpeg(const char *filename, int xpos, int ypos) {
+  File jpegFile = SD.open(filename, FILE_READ);  // Open the file from the SD card
+  
+  if (!jpegFile) {
+    Serial.print("ERROR: File \""); Serial.print(filename); Serial.println ("\" not found!");
+    return;
+  }
 
-  lv_obj_t *style_container = lv_obj_create(bottom_bar);
-  lv_obj_remove_style_all(style_container);
-  lv_obj_set_size(style_container, 110, LV_SIZE_CONTENT);
-  lv_obj_set_layout(style_container, LV_LAYOUT_FLEX);
+  Serial.println("===========================");
+  Serial.print("Drawing file: "); Serial.println(filename);
+  Serial.println("===========================");
 
-  lv_obj_t *style_label = lv_label_create(style_container);
-  lv_label_set_text(style_label, "Style:");
+  bool decoded = JpegDec.decodeSdFile(jpegFile);  // Decode JPEG file
 
-  style_label_text = lv_label_create(style_container);
-  lv_label_set_text(style_label_text, style_options[0]);
-
-  lv_obj_t *change_container = lv_obj_create(bottom_bar);
-  lv_obj_remove_style_all(change_container);
-  lv_obj_set_size(change_container, 110, LV_SIZE_CONTENT);
-  lv_obj_set_layout(change_container, LV_LAYOUT_FLEX);
-
-  lv_obj_t *change_label = lv_label_create(change_container);
-  lv_label_set_text(change_label, "Change:");
-
-  change_label_text = lv_label_create(change_container);
-  lv_label_set_text(change_label_text, change_options[0]);
+  if (decoded) {
+    jpegInfo();  // Print information about the image
+    jpegRender(xpos, ypos);  // Render the image onto the screen
+  } else {
+    Serial.println("Jpeg file format not supported!");
+  }
 }
 
-void update_labels_from_pots() {
-  int pot1 = analogRead(POT1_PIN);
-  int pot2 = analogRead(POT2_PIN);
+void GUI::jpegRender(int xpos, int ypos) {
+  uint16_t *pImg;
+  uint16_t mcu_w = JpegDec.MCUWidth;
+  uint16_t mcu_h = JpegDec.MCUHeight;
+  uint32_t max_x = JpegDec.width;
+  uint32_t max_y = JpegDec.height;
 
-  int style_index = map(pot1, 0, 4095, 0, 2);
-  int change_index = map(pot2, 0, 4095, 0, 3);
+  bool swapBytes = tft.getSwapBytes();
+  tft.setSwapBytes(true);
 
-  lv_label_set_text(style_label_text, style_options[style_index]);
-  lv_label_set_text(change_label_text, change_options[change_index]);
+  uint32_t min_w = jpg_min(mcu_w, max_x % mcu_w);
+  uint32_t min_h = jpg_min(mcu_h, max_y % mcu_h);
+
+  uint32_t win_w = mcu_w;
+  uint32_t win_h = mcu_h;
+
+  uint32_t drawTime = millis();
+  max_x += xpos;
+  max_y += ypos;
+
+  while (JpegDec.read()) {
+    pImg = JpegDec.pImage;
+
+    int mcu_x = JpegDec.MCUx * mcu_w + xpos;
+    int mcu_y = JpegDec.MCUy * mcu_h + ypos;
+
+    if (mcu_x + mcu_w <= max_x) win_w = mcu_w;
+    else win_w = min_w;
+
+    if (mcu_y + mcu_h <= max_y) win_h = mcu_h;
+    else win_h = min_h;
+
+    if (win_w != mcu_w) {
+      uint16_t *cImg;
+      int p = 0;
+      cImg = pImg + win_w;
+      for (int h = 1; h < win_h; h++) {
+        p += mcu_w;
+        for (int w = 0; w < win_w; w++) {
+          *cImg = *(pImg + w + p);
+          cImg++;
+        }
+      }
+    }
+
+    uint32_t mcu_pixels = win_w * win_h;
+
+    if ((mcu_x + win_w) <= tft.width() && (mcu_y + win_h) <= tft.height())
+      tft.pushImage(mcu_x, mcu_y, win_w, win_h, pImg);
+    else if ((mcu_y + win_h) >= tft.height())
+      JpegDec.abort();
+  }
+
+  tft.setSwapBytes(swapBytes);
+}
+
+void GUI::jpegInfo() {
+  Serial.println("JPEG image info");
+  Serial.println("===============");
+  Serial.print("Width      :");
+  Serial.println(JpegDec.width);
+  Serial.print("Height     :");
+  Serial.println(JpegDec.height);
+  Serial.print("Components :");
+  Serial.println(JpegDec.comps);
+  Serial.print("MCU / row  :");
+  Serial.println(JpegDec.MCUSPerRow);
+  Serial.print("MCU / col  :");
+  Serial.println(JpegDec.MCUSPerCol);
+  Serial.print("Scan type  :");
+  Serial.println(JpegDec.scanType);
+  Serial.print("MCU width  :");
+  Serial.println(JpegDec.MCUWidth);
+  Serial.print("MCU height :");
+  Serial.println(JpegDec.MCUHeight);
+  Serial.println("===============");
+  Serial.println("");
+}
+
+void GUI::draw_ui(int style_index, int change_index) {
+  drawSdJpeg("/gavan.jpg", 0, 0);   
+  tft.fillRect(0, 270, 240, 50, TFT_LIGHTGREY);  // Bottom bar
+
+  tft.setTextColor(TFT_BLACK, TFT_LIGHTGREY);
+  tft.setFreeFont(&FreeMono9pt7b);
+
+  tft.setCursor(10, 290);  // X, Y position for style label
+  tft.print("Style: ");
+  tft.setCursor(10, 310);  // Position for style value
+  tft.println(style_options[style_index]);
+
+  tft.setCursor(130, 290);  // X, Y position for change label
+  tft.print("Change: ");
+  tft.setCursor(130, 310);  // Position for change value
+  tft.println(change_options[change_index]);
 }
