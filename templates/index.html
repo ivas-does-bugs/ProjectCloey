@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clothes Gallery</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <h1>Clothes Gallery</h1>
+  <!-- Instruction message -->
+  <p>Click the "Delete" button to remove an item, or click anywhere else on a card to enlarge it.</p>
+
+  <!-- Filter Section: to view items by category -->
+  <div id="filterSection">
+    <label for="categoryFilter">Filter by category:</label>
+    <select id="categoryFilter">
+      <option value="All">All Categories</option>
+      <option value="Blouse">Blouse</option>
+      <option value="Pants">Pants</option>
+      <option value="Shoes">Shoes</option>
+    </select>
+  </div>
+
+  <!-- Add New Item Section: select category and style for adding a new item -->
+  <div id="addSection">
+    <label for="addCategorySelect">Select Category for New Item:</label>
+    <select id="addCategorySelect">
+      <option value="" disabled selected>Select Category</option>
+      <option value="Blouse">Blouse</option>
+      <option value="Pants">Pants</option>
+      <option value="Shoes">Shoes</option>
+    </select>
+    
+    <label for="styleSelect">Select Style:</label>
+    <select id="styleSelect">
+      <option value="" disabled selected>Select Style</option>
+      <option value="Sport">Sport</option>
+      <option value="Fashion">Fashion</option>
+    </select>
+  </div>
+
+  <!-- Container for clothing items -->
+  <div id="clothesContainer">
+    <!-- Preloaded items can be added here -->
+    <div id="category-Blouse" class="category-container">
+      <h2>Blouse</h2>
+      <div class="cloth-card">
+        <img src="https://via.placeholder.com/100" alt="Floral Blouse" />
+        <span>Floral Blouse</span>
+        <small>Style: Fashion</small>
+      </div>
+    </div>
+    <div id="category-Pants" class="category-container">
+      <h2>Pants</h2>
+      <div class="cloth-card">
+        <img src="https://via.placeholder.com/100" alt="Chinos" />
+        <span>Chinos</span>
+        <small>Style: Casual</small>
+      </div>
+    </div>
+    <div id="category-Shoes" class="category-container">
+      <h2>Shoes</h2>
+      <div class="cloth-card">
+        <img src="https://via.placeholder.com/100" alt="Sneakers" />
+        <span>Sneakers</span>
+        <small>Style: Sport</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden file input for selecting images -->
+  <input type="file" id="imageInput" accept="image/bmp" style="display: none;" onchange="handleFileSelect(event)" />
+  <button onclick="triggerFileInput()">Add Clothing Item</button>
+
+  <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+</body>
+</html>
