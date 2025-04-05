@@ -47,7 +47,7 @@
     <div id="category-Blouse" class="category-container">
       <h2>Blouse</h2>
       <div class="cloth-card">
-        <img src="https://via.placeholder.com/100" alt="Floral Blouse" />
+        <img src="/cardSD/floral_blouse.jpg" alt="Floral Blouse" />
         <span>Floral Blouse</span>
         <small>Style: Fashion</small>
       </div>
@@ -55,7 +55,7 @@
     <div id="category-Pants" class="category-container">
       <h2>Pants</h2>
       <div class="cloth-card">
-        <img src="https://via.placeholder.com/100" alt="Chinos" />
+        <img src="/cardSD/chinos.jpg" alt="Chinos" />
         <span>Chinos</span>
         <small>Style: Casual</small>
       </div>
@@ -63,15 +63,15 @@
     <div id="category-Shoes" class="category-container">
       <h2>Shoes</h2>
       <div class="cloth-card">
-        <img src="https://via.placeholder.com/100" alt="Sneakers" />
+        <img src="/cardSD/sneakers.jpg" alt="Sneakers" />
         <span>Sneakers</span>
         <small>Style: Sport</small>
       </div>
     </div>
   </div>
-
-  <!-- Hidden file input for selecting images -->
-  <input type="file" id="imageInput" accept="image/bmp" style="display: none;" onchange="handleFileSelect(event)" />
+ 
+  <!-- Hidden file input for selecting images (accepting JPEG images) -->
+  <input type="file" id="imageInput" accept="image/jpeg" style="display: none;" onchange="handleFileSelect(event)" />
   <button onclick="triggerFileInput()">Add Clothing Item</button>
 
   <script src="{{ url_for('static', filename='scripts.js') }}"></script>
