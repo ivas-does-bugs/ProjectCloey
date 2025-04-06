@@ -1,5 +1,7 @@
 # Project Overview
 
+Cloey is a smart clothes choosing assitant.
+
 This project consists of two main components:
 
 - A **Flask** server that handles image generation and upload requests.
