@@ -26,7 +26,7 @@ private:
     JpegRenderer jpegRenderer;
 
     const char* style_options[3] = {"Casual", "Formal", "Sport"};
-    const char* change_options[3] = {"All", "Shirt", "Pants"};
+    const char* change_options[3] = {"Shirt", "Pants", "Background"};
 
     void drawImage();     
     void drawBottomText();

@@ -8,9 +8,9 @@
 #define SD_SCK   18   
 
 // Potentiometer pins
-#define POT1_PIN 33
-#define POT2_PIN 32
-#define BUTT_PIN 22
+#define POT1_PIN 33 //style pot
+#define POT2_PIN 32 //change pot
+#define BUTT_PIN 22 //le button
 
 #endif
 

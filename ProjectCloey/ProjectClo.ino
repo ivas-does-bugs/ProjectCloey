@@ -26,7 +26,6 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Starting...");
 
-  pinMode(BUTT_PIN, INPUT_PULLUP);
   init_inputs();
 
   WiFi.begin(ssid, password);
@@ -54,8 +53,6 @@ void setup() {
     request->send(200, "text/plain", "Upload OK");
   }, handleUpload);
 
-  server.serveStatic("/server.jpg", SD, "/server.jpg");
-
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "ESP32 Image Receiver Ready");
   });
@@ -67,9 +64,12 @@ void setup() {
 void loop() {
   int pot1 = analogRead(POT1_PIN);
   int pot2 = analogRead(POT2_PIN);
+  Serial.println(pot1);
+  Serial.println(pot2);
 
   int style_index = map(pot1, 0, 4095, 0, 2);
   int change_index = map(pot2, 0, 4095, 0, 2); 
+  
 
   if (style_index != last_style_index || change_index != last_change_index) {
     gui.drawUI(style_index, change_index);
@@ -88,25 +88,37 @@ void loop() {
   delay(50);
 }
 
+
 void sendRequestToServer() {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
 
     // Replace with the actual IP address and port of your Flask server.
-    http.begin("http://10.48.162.95:5000/generate-image"); 
+    http.begin("http://10.48.162.95:5000/generate-image");
 
     // Set header to indicate JSON payload
     http.addHeader("Content-Type", "application/json");
 
-    // Send POST request (no need to send any body if you just need to trigger the generation)
-    int httpResponseCode = http.POST("{}");  // Sending an empty JSON body
+    String jsonPayload = "{\"change_index\": " + String(last_change_index) + ", \"style_index\": " + String(last_style_index) + "}";
+    // Send POST request with the JSON body
+    int httpResponseCode = http.POST(jsonPayload);  // Send the change_index as part of the body
 
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
 
+    // Print response body for debugging
+    if (httpResponseCode > 0) {
+      String response = http.getString();
+      Serial.println("Response: ");
+      Serial.println(response);
+    } else {
+      Serial.println("Error on sending POST request");
+    }
+
     http.end();
   }
 }
+
 
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
                   uint8_t *data, size_t len, bool final) {
