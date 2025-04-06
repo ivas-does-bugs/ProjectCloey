@@ -13,18 +13,26 @@
 #define FONT7 7
 #define FONT8 8
 
-
-
 class GUI {
 public:
     GUI(TFT_eSPI& tft);
+
     void drawUI(int style_index, int change_index);
+    void setImage(const char* imagePath); // NEW
 
 private:
     TFT_eSPI& tft;
     JpegRenderer jpegRenderer;
+
     const char* style_options[3] = {"Casual", "Formal", "Sport"};
     const char* change_options[4] = {"All", "Shirt", "Pants"};
+
+    void drawImage();         // NEW: only draws background image
+    void drawBottomText();    // NEW: only draws the bottom text
+
+    const char* currentImagePath = "/Andra.jpg"; // Default
+    int currentStyleIndex = -1;
+    int currentChangeIndex = -1;
 };
 
 #endif // GUI_H
