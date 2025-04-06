@@ -18,8 +18,9 @@ public:
     GUI(TFT_eSPI& tft);
 
     void drawUI(int style_index, int change_index);
-    void setImage(const char* imagePath); // NEW
-
+    void setImage(const char* imagePath); 
+    void drawGenerating();
+    
 private:
     TFT_eSPI& tft;
     JpegRenderer jpegRenderer;
@@ -27,10 +28,10 @@ private:
     const char* style_options[3] = {"Casual", "Formal", "Sport"};
     const char* change_options[4] = {"All", "Shirt", "Pants"};
 
-    void drawImage();         // NEW: only draws background image
-    void drawBottomText();    // NEW: only draws the bottom text
+    void drawImage();     
+    void drawBottomText();
 
-    const char* currentImagePath = "/Andra.jpg"; // Default
+    const char* currentImagePath = "/Andra.jpg";
     int currentStyleIndex = -1;
     int currentChangeIndex = -1;
 };

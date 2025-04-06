@@ -24,9 +24,25 @@ void GUI::drawUI(int style_index, int change_index) {
     }
 }
 
+void GUI::drawGenerating() {
+    int boxWidth = 200;
+    int boxHeight = 50;
+    int boxX = (tft.width() - boxWidth) / 2;
+    int boxY = (tft.height() - boxHeight) / 2;
+    
+    tft.fillRect(boxX, boxY, boxWidth, boxHeight, TFT_WHITE);
+    tft.drawRect(boxX, boxY, boxWidth, boxHeight, TFT_BLACK);
+    
+    tft.setCursor(boxX + 10, boxY + 20);
+    tft.println("Generating...");
+    tft.setCursor(boxX + 10, boxY + 40);
+    tft.println("Please wait");
+}
+
 void GUI::drawImage() {
     tft.fillScreen(TFT_BLACK);
     jpegRenderer.render(currentImagePath, 0, 0);
+    drawBottomText();
 }
 
 void GUI::drawBottomText() {

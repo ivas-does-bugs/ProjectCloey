@@ -69,7 +69,7 @@ void loop() {
   int pot2 = analogRead(POT2_PIN);
 
   int style_index = map(pot1, 0, 4095, 0, 2);
-  int change_index = map(pot2, 0, 4095, 0, 2); // change_index maps to mask_1 for now
+  int change_index = map(pot2, 0, 4095, 0, 2); 
 
   if (style_index != last_style_index || change_index != last_change_index) {
     gui.drawUI(style_index, change_index);
@@ -80,6 +80,7 @@ void loop() {
   bool buttonState = digitalRead(BUTT_PIN);
   if (buttonState == LOW && lastButtonState == HIGH) {
     Serial.println("Button was pressed");
+    gui.drawGenerating();
     sendRequestToServer();
   }
   lastButtonState = buttonState;
