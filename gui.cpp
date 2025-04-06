@@ -4,10 +4,10 @@ GUI::GUI(TFT_eSPI& tft)
     : tft(tft), jpegRenderer(tft) {}
 
 void GUI::setImage(const char* imagePath) {
-    if (strcmp(imagePath, currentImagePath) != 0) {
         currentImagePath = imagePath;
+        Serial.print("Current path:");
+        Serial.println(currentImagePath);
         drawImage();  // Redraw only if image changed
-    }
 }
 
 void GUI::drawUI(int style_index, int change_index) {

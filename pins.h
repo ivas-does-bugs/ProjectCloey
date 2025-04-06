@@ -9,8 +9,8 @@
 
 // Potentiometer pins
 #define POT1_PIN 33
-#define POT2_PIN 33
-#define BUTT_PIN 33
+#define POT2_PIN 32
+#define BUTT_PIN 22
 
 #endif
 
